@@ -5,6 +5,7 @@ import { describeImage } from "../ai/vision.js";
 import { transcribeAudio } from "../ai/transcribe.js";
 import { getOrCreateConversation, getRecentMessages, saveMessage } from "../db/schema.js";
 import { flagForReview } from "../review/queue.js";
+import { handleOwnerReply } from "../admin/owner.js";
 import { sendConversationMessage } from "./api.js";
 import { downloadInboxMedia } from "./media.js";
 import type { InboxMessage } from "./types.js";
@@ -41,6 +42,14 @@ clientifyWebhook.post("/webhook/clientify", async (req, res) => {
 		// confirme el campo real que distingue incoming/outgoing.
 		if (message.owner_id) return;
 
+		// La conversación del dueño es un canal aparte, para confirmar
+		// aprendizajes por sí/no — no pasa por el agente de cara al cliente.
+		if (message.conversation_id === env.OWNER_CONVERSATION_ID) {
+			const reply = handleOwnerReply(message.text);
+			if (reply) await sendConversationMessage(message.conversation_id, reply);
+			return;
+		}
+
 		const conversationId = getOrCreateConversation(message.conversation_id);
 
 		let userText: string;
@@ -65,7 +74,7 @@ clientifyWebhook.post("/webhook/clientify", async (req, res) => {
 		}
 
 		const history = getRecentMessages(conversationId);
-		const result = await runAgent(history);
+		const result = await runAgent(history, conversationId);
 
 		const assistantMessageId = saveMessage(conversationId, "assistant", "text", result.text);
 		if (result.needsReview) {

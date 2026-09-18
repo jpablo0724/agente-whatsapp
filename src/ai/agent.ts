@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "../config/env.js";
 import { loadKnowledgeBase } from "../knowledge/store.js";
-import { clientifyToolDefinitions, runClientifyTool } from "./tools/index.js";
+import { allToolDefinitions, runTool } from "./tools/index.js";
 
 const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
@@ -16,8 +16,14 @@ honestidad y ofrecé escalar la conversación a una persona del equipo —
 no inventes precios, políticas ni disponibilidad.
 
 Cuando necesites datos del cliente o registrar algo, usá las
-herramientas disponibles (buscar/crear contacto, agregar nota) en vez
-de asumir.
+herramientas disponibles (buscar contacto, ver negocios, agregar nota)
+en vez de asumir.
+
+Cuando aprendas algo nuevo y útil durante la charla (un precio que se
+confirmó, una pregunta que no sabías responder y te explicaron, una
+corrección), guardalo con la herramienta guardar_aprendizaje — así la
+próxima conversación ya lo sabés, sin que nadie tenga que escribirlo
+a mano.
 
 --- BASE DE CONOCIMIENTO ---
 ${knowledge}`;
@@ -31,6 +37,7 @@ export interface AgentResult {
 
 export async function runAgent(
 	history: { role: "user" | "assistant"; content: string }[],
+	conversationId: number,
 ): Promise<AgentResult> {
 	const messages: Anthropic.MessageParam[] = history.map((m) => ({
 		role: m.role,
@@ -46,7 +53,7 @@ export async function runAgent(
 			model: env.ANTHROPIC_MODEL,
 			max_tokens: 1024,
 			system: buildSystemPrompt(),
-			tools: clientifyToolDefinitions,
+			tools: allToolDefinitions,
 			messages,
 		});
 
@@ -69,7 +76,7 @@ export async function runAgent(
 		for (const block of response.content) {
 			if (block.type !== "tool_use") continue;
 			try {
-				const result = await runClientifyTool(block.name, block.input as Record<string, unknown>);
+				const result = await runTool(block.name, block.input as Record<string, unknown>, conversationId);
 				toolResults.push({ type: "tool_result", tool_use_id: block.id, content: result });
 			} catch (error) {
 				toolResults.push({

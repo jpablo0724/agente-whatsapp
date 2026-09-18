@@ -40,13 +40,32 @@ El agente los carga automáticamente y responde en base a ellos. No
 responde con información que no esté documentada ahí (evita que invente
 precios o políticas).
 
-## Mejora continua ("autoaprendizaje" supervisado)
+## El cerebro que se autoalimenta (memoria automática)
 
-Cuando el agente no está seguro de una respuesta, la conversación queda
-en `review_queue` (ver `src/review/queue.ts`). Revisando esa cola podés
-corregir la respuesta y sumar esa corrección como un nuevo documento en
-`src/knowledge/documents/` — así el agente mejora con el tiempo, siempre
-con una persona revisando antes de que el cambio quede activo.
+No hace falta escribir documentos a mano para que el agente aprenda: en
+cada conversación, si nota algo útil y duradero, lo guarda solo con la
+herramienta `guardar_aprendizaje` (`src/ai/tools/memory.ts`) — un precio
+que se confirmó, una pregunta nueva que le explicaron, una corrección.
+Eso queda en la tabla `memories` y se suma automáticamente a lo que el
+agente sabe (`src/knowledge/store.ts`).
+
+Dos niveles, según el propio agente decida si es importante:
+
+- **Bajo riesgo** (una preferencia puntual, una aclaración menor): se
+  guarda y se usa de inmediato, sin pedir nada.
+- **Alto riesgo** (precios, políticas — algo que si está mal se repite a
+  muchos clientes): queda "pendiente" y **no se usa todavía**. El agente
+  le manda un WhatsApp al dueño (`OWNER_CONVERSATION_ID`, ver
+  `src/admin/owner.ts`) preguntando si lo confirma; contestando *sí* o
+  *no* directamente en esa conversación queda resuelto, sin entrar a
+  ningún panel.
+
+Si nunca contestás nada, el aprendizaje simplemente no se usa — nunca se
+activa solo.
+
+También queda `review_queue` (`src/review/queue.ts`) para el caso
+distinto: cuando el agente ya respondió algo de lo que no estaba seguro,
+para poder revisarlo después.
 
 ## Configuración
 
@@ -84,3 +103,6 @@ con una persona revisando antes de que el cambio quede activo.
   probado.
 - Dónde va a correr 24/7 (Hostinger, Railway, un VPS, etc.) — todavía no
   definido.
+- `OWNER_CONVERSATION_ID` sin configurar todavía — sin eso, los
+  aprendizajes importantes quedan pendientes pero nadie se entera (ver
+  sección de arriba).
