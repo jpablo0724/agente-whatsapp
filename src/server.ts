@@ -1,7 +1,14 @@
+import path from "node:path";
 import express from "express";
 import { env } from "./config/env.js";
 import "./db/schema.js";
+import { adminApi } from "./admin/api.js";
 import { clientifyWebhook } from "./clientify/webhook.js";
+
+// `public/` vive en la raíz del proyecto (no bajo src/), así que se
+// resuelve contra el directorio de trabajo — igual en dev (tsx desde la
+// raíz) que en producción (node dist/server.js, también desde la raíz).
+const publicDir = path.join(process.cwd(), "public");
 
 // Red de seguridad: un error que nadie atrapó no debe tirar abajo todo el
 // servidor (y con él, la posibilidad de responder a CUALQUIER conversación).
@@ -21,6 +28,9 @@ app.use(express.json());
 app.get("/health", (_req, res) => {
 	res.json({ status: "ok" });
 });
+
+app.use("/admin", adminApi);
+app.use("/admin", express.static(path.join(publicDir, "admin")));
 
 app.use(clientifyWebhook);
 

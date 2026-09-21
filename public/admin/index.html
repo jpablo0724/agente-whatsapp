@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Entrenar al agente — Sinverso</title>
+<style>
+	:root { color-scheme: light; }
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+		background: #f4f4f6;
+		color: #1c1c1e;
+	}
+	header {
+		background: #111;
+		color: #fff;
+		padding: 20px 24px;
+	}
+	header h1 { margin: 0; font-size: 20px; }
+	header p { margin: 4px 0 0; color: #bbb; font-size: 13px; }
+	main {
+		max-width: 900px;
+		margin: 24px auto;
+		padding: 0 16px 60px;
+		display: grid;
+		gap: 20px;
+	}
+	section {
+		background: #fff;
+		border-radius: 12px;
+		padding: 20px;
+		box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+	}
+	section h2 { margin: 0 0 4px; font-size: 17px; }
+	section .hint { margin: 0 0 16px; font-size: 13px; color: #666; }
+	.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+	@media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+	.box h3 { font-size: 14px; margin: 0 0 8px; }
+	.box.decir h3 { color: #0a7a3e; }
+	.box.no-decir h3 { color: #b3251e; }
+	textarea, input[type=text], input[type=url] {
+		width: 100%;
+		font: inherit;
+		padding: 8px 10px;
+		border: 1px solid #ddd;
+		border-radius: 8px;
+		resize: vertical;
+	}
+	textarea { min-height: 60px; }
+	button {
+		font: inherit;
+		border: none;
+		border-radius: 8px;
+		padding: 8px 14px;
+		cursor: pointer;
+		background: #111;
+		color: #fff;
+		margin-top: 8px;
+	}
+	button.secondary { background: #eee; color: #111; }
+	button.danger { background: #fff0f0; color: #b3251e; }
+	button:disabled { opacity: 0.5; cursor: default; }
+	ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+	li {
+		border: 1px solid #eee;
+		border-radius: 8px;
+		padding: 8px 10px;
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: 10px;
+		font-size: 14px;
+	}
+	li .txt { flex: 1; }
+	li .meta { font-size: 11px; color: #999; margin-top: 2px; }
+	li.inactive { opacity: 0.45; }
+	li .actions { display: flex; gap: 6px; flex-shrink: 0; }
+	li .actions button { margin-top: 0; padding: 4px 8px; font-size: 12px; }
+	.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+	.row input { flex: 1; min-width: 180px; }
+	.status { font-size: 13px; margin-top: 8px; min-height: 18px; }
+	.status.error { color: #b3251e; }
+	.status.ok { color: #0a7a3e; }
+</style>
+</head>
+<body>
+<header>
+	<h1>Entrenar al agente</h1>
+	<p>Panel de prueba, sin login todavía — reglas y base de conocimiento del agente de WhatsApp.</p>
+</header>
+<main>
+	<section>
+		<h2>Reglas de conversación</h2>
+		<p class="hint">Instrucciones directas para el agente. Tienen prioridad sobre el resto de la base de conocimiento.</p>
+		<div class="cols">
+			<div class="box decir">
+				<h3>Sí debe decir</h3>
+				<textarea id="decir-input" placeholder="Ej: siempre ofrecer conectar con el equipo si preguntan por precios"></textarea>
+				<button id="decir-add">Agregar</button>
+				<ul id="decir-list"></ul>
+			</div>
+			<div class="box no-decir">
+				<h3>No debe decir</h3>
+				<textarea id="no_decir-input" placeholder="Ej: nunca prometer plazos de entrega concretos"></textarea>
+				<button id="no_decir-add">Agregar</button>
+				<ul id="no_decir-list"></ul>
+			</div>
+		</div>
+		<p class="status" id="rules-status"></p>
+	</section>
+
+	<section>
+		<h2>Base de conocimiento</h2>
+		<p class="hint">Archivos de texto (.txt, .md, .csv, .json) o páginas web para que el agente use como referencia.</p>
+		<div class="row">
+			<input type="file" id="file-input" accept=".txt,.md,.csv,.json" />
+			<button id="file-add">Subir archivo</button>
+		</div>
+		<div class="row" style="margin-top:10px">
+			<input type="url" id="website-input" placeholder="https://ejemplo.com/pagina" />
+			<button id="website-add">Agregar sitio web</button>
+		</div>
+		<p class="status" id="knowledge-status"></p>
+		<ul id="knowledge-list"></ul>
+	</section>
+</main>
+
+<script>
+const api = {
+	async get(path) {
+		const r = await fetch(path);
+		if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+		return r.json();
+	},
+	async send(path, method, body) {
+		const opts = { method, headers: {} };
+		if (body instanceof FormData) {
+			opts.body = body;
+		} else if (body !== undefined) {
+			opts.headers["Content-Type"] = "application/json";
+			opts.body = JSON.stringify(body);
+		}
+		const r = await fetch(path, opts);
+		if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+		return r.json();
+	},
+};
+
+function setStatus(id, message, isError) {
+	const el = document.getElementById(id);
+	el.textContent = message || "";
+	el.className = "status" + (message ? (isError ? " error" : " ok") : "");
+	if (message) setTimeout(() => { if (el.textContent === message) el.textContent = ""; }, 4000);
+}
+
+function escapeHtml(str) {
+	return str.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// --- Reglas ---
+
+async function loadRules() {
+	const rules = await api.get("/admin/api/rules");
+	renderRuleList("decir", rules.filter((r) => r.type === "decir"));
+	renderRuleList("no_decir", rules.filter((r) => r.type === "no_decir"));
+}
+
+function renderRuleList(type, rules) {
+	const ul = document.getElementById(type + "-list");
+	ul.innerHTML = rules.map((r) => `
+		<li class="${r.active ? "" : "inactive"}" data-id="${r.id}">
+			<div class="txt">${escapeHtml(r.content)}</div>
+			<div class="actions">
+				<button class="secondary toggle">${r.active ? "Desactivar" : "Activar"}</button>
+				<button class="danger del">Borrar</button>
+			</div>
+		</li>
+	`).join("");
+
+	ul.querySelectorAll("li").forEach((li) => {
+		const id = li.dataset.id;
+		li.querySelector(".toggle").onclick = async () => {
+			const nowActive = li.classList.contains("inactive");
+			try {
+				await api.send(`/admin/api/rules/${id}`, "PATCH", { active: nowActive });
+				loadRules();
+			} catch (e) { setStatus("rules-status", e.message, true); }
+		};
+		li.querySelector(".del").onclick = async () => {
+			try {
+				await api.send(`/admin/api/rules/${id}`, "DELETE");
+				loadRules();
+			} catch (e) { setStatus("rules-status", e.message, true); }
+		};
+	});
+}
+
+for (const type of ["decir", "no_decir"]) {
+	document.getElementById(type + "-add").onclick = async () => {
+		const input = document.getElementById(type + "-input");
+		const content = input.value.trim();
+		if (!content) return;
+		try {
+			await api.send("/admin/api/rules", "POST", { type, content });
+			input.value = "";
+			setStatus("rules-status", "Regla agregada", false);
+			loadRules();
+		} catch (e) { setStatus("rules-status", e.message, true); }
+	};
+}
+
+// --- Base de conocimiento ---
+
+async function loadKnowledge() {
+	const sources = await api.get("/admin/api/knowledge");
+	const ul = document.getElementById("knowledge-list");
+	ul.innerHTML = sources.map((s) => `
+		<li data-id="${s.id}">
+			<div class="txt">
+				<strong>${s.type === "file" ? "📄" : "🌐"} ${escapeHtml(s.title)}</strong>
+				<div class="meta">${new Date(s.created_at).toLocaleString("es-CO")}</div>
+			</div>
+			<div class="actions"><button class="danger del">Borrar</button></div>
+		</li>
+	`).join("") || `<li><div class="txt" style="color:#999">Todavía no hay nada cargado.</div></li>`;
+
+	ul.querySelectorAll("li[data-id] .del").forEach((btn) => {
+		btn.onclick = async () => {
+			const id = btn.closest("li").dataset.id;
+			try {
+				await api.send(`/admin/api/knowledge/${id}`, "DELETE");
+				loadKnowledge();
+			} catch (e) { setStatus("knowledge-status", e.message, true); }
+		};
+	});
+}
+
+document.getElementById("file-add").onclick = async () => {
+	const input = document.getElementById("file-input");
+	if (!input.files.length) return;
+	const formData = new FormData();
+	formData.append("file", input.files[0]);
+	try {
+		await api.send("/admin/api/knowledge/file", "POST", formData);
+		input.value = "";
+		setStatus("knowledge-status", "Archivo agregado", false);
+		loadKnowledge();
+	} catch (e) { setStatus("knowledge-status", e.message, true); }
+};
+
+document.getElementById("website-add").onclick = async () => {
+	const input = document.getElementById("website-input");
+	const url = input.value.trim();
+	if (!url) return;
+	setStatus("knowledge-status", "Leyendo el sitio...", false);
+	try {
+		await api.send("/admin/api/knowledge/website", "POST", { url });
+		input.value = "";
+		setStatus("knowledge-status", "Sitio agregado", false);
+		loadKnowledge();
+	} catch (e) { setStatus("knowledge-status", e.message, true); }
+};
+
+loadRules();
+loadKnowledge();
+</script>
+</body>
+</html>
