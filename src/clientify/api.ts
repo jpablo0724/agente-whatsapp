@@ -33,7 +33,7 @@ async function clientifyFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 // --- Contactos (API Básica) ---
 
-const CONTACT_FIELDS = "id,first_name,last_name,name,phone,email";
+const CONTACT_FIELDS = "id,first_name,last_name,name,phone,phones,email";
 
 export function searchContactsByPhone(phone: string): Promise<{ results: ClientifyContact[] }> {
 	return clientifyFetch(`/v2/contacts/?fields=${CONTACT_FIELDS}&phone=${encodeURIComponent(phone)}`);

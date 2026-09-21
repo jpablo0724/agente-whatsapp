@@ -3,7 +3,9 @@ export interface ClientifyContact {
 	first_name?: string;
 	last_name?: string;
 	name?: string;
+	/** Casi siempre null — el teléfono real vive en `phones[]`, no acá. */
 	phone?: string;
+	phones?: { id: number; phone: string; whatsapp: boolean }[];
 }
 
 export interface ClientifyDeal {

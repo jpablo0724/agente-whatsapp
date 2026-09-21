@@ -11,11 +11,12 @@ const { results: conversations } = await listConversations({});
 
 for (const conv of conversations) {
 	const contact = await getContact(conv.contact_id).catch(() => null);
-	const contactLabel = contact
+	const name = contact
 		? `${contact.first_name ?? ""} ${contact.last_name ?? ""}`.trim() || contact.name || `#${conv.contact_id}`
 		: `#${conv.contact_id}`;
+	const phone = contact?.phones?.[0]?.phone ?? "(sin teléfono)";
 
-	console.log(`\n=== Conversación ${conv.id} — contacto: ${contactLabel} (id ${conv.contact_id}) — estado: ${conv.status} ===`);
+	console.log(`\n=== Conversación ${conv.id} — contacto: ${name} — tel: ${phone} — estado: ${conv.status} ===`);
 
 	const { results: messages } = await listConversationMessages(conv.id);
 	for (const m of messages.slice().reverse()) {
