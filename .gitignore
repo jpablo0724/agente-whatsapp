@@ -5,4 +5,7 @@ dist
 !.env.example
 *.sqlite
 *.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 .DS_Store
+.bin/
