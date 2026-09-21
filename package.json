@@ -9,7 +9,7 @@
 	"scripts": {
 		"dev": "tsx watch src/server.ts",
 		"start": "node dist/server.js",
-		"build": "tsc -b",
+		"build": "tsc -b && node -e \"require('fs').cpSync('src/knowledge/documents','dist/knowledge/documents',{recursive:true})\"",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {

@@ -9,3 +9,4 @@ dist
 *.sqlite-shm
 .DS_Store
 .bin/
+*.tsbuildinfo
