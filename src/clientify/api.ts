@@ -4,9 +4,14 @@ import type { ClientifyContact, ClientifyDeal, InboxChannel, InboxConversation, 
 /**
  * Cliente HTTP para la API V2 de Clientify (`https://api-plus.clientify.com`).
  * Rutas y forma de los datos confirmadas contra la documentación oficial
- * (`/api/docs/v2/scalar/`) el 2026-09-18. Los endpoints de Team Inbox
- * (channels/conversations/messages) requieren el addon **API Avanzada** de
- * la cuenta y tienen un límite propio de 60 peticiones/minuto.
+ * (`/api/docs/v2/scalar/`) el 2026-09-18, y contra la cuenta real el
+ * 2026-09-20. Los endpoints de Team Inbox (channels/conversations/messages)
+ * requieren el addon **API Avanzada** de la cuenta y tienen un límite
+ * propio de 60 peticiones/minuto.
+ *
+ * Importante: TODOS los endpoints de listado/detalle exigen el parámetro
+ * `fields` (no es opcional como sugiere la doc) — sin él, la API devuelve
+ * 400 con la lista completa de campos disponibles para ese endpoint.
  */
 async function clientifyFetch<T>(path: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(`${env.CLIENTIFY_API_BASE_URL}${path}`, {
@@ -28,12 +33,14 @@ async function clientifyFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 // --- Contactos (API Básica) ---
 
+const CONTACT_FIELDS = "id,first_name,last_name,name,phone,email";
+
 export function searchContactsByPhone(phone: string): Promise<{ results: ClientifyContact[] }> {
-	return clientifyFetch(`/v2/contacts/?phone=${encodeURIComponent(phone)}`);
+	return clientifyFetch(`/v2/contacts/?fields=${CONTACT_FIELDS}&phone=${encodeURIComponent(phone)}`);
 }
 
 export function getContact(id: number): Promise<ClientifyContact> {
-	return clientifyFetch(`/v2/contacts/${id}/`);
+	return clientifyFetch(`/v2/contacts/${id}/?fields=${CONTACT_FIELDS}`);
 }
 
 /**
@@ -61,13 +68,17 @@ export function addNoteToContact(contactId: number, comment: string): Promise<vo
 }
 
 export function getContactDeals(contactId: number): Promise<{ results: ClientifyDeal[] }> {
-	return clientifyFetch(`/v2/contacts/${contactId}/deals/`);
+	return clientifyFetch(`/v2/contacts/${contactId}/deals/?fields=id,name,status`);
 }
 
 // --- Team Inbox / WhatsApp (API Avanzada) ---
 
+const CHANNEL_FIELDS = "pk,name,type,source_id,created";
+const CONVERSATION_FIELDS = "id,created,status,owner_id,channel_id,contact_id";
+const MESSAGE_FIELDS = "id,text,type,media,path,created,channel_id,owner_id,conversation_id,contact_id";
+
 export function listChannels(): Promise<{ results: InboxChannel[] }> {
-	return clientifyFetch(`/v2/channels/`);
+	return clientifyFetch(`/v2/channels/?fields=${CHANNEL_FIELDS}`);
 }
 
 /** Configura (o desactiva con url vacía) el reenvío de mensajes del canal hacia nuestro webhook. */
@@ -83,12 +94,12 @@ export function listConversations(params: {
 	contact__id?: number;
 	status?: string;
 }): Promise<{ results: InboxConversation[] }> {
-	const query = new URLSearchParams(params as Record<string, string>).toString();
+	const query = new URLSearchParams({ fields: CONVERSATION_FIELDS, ...(params as Record<string, string>) });
 	return clientifyFetch(`/v2/conversations/?${query}`);
 }
 
 export function listConversationMessages(conversationId: number): Promise<{ results: InboxMessage[] }> {
-	return clientifyFetch(`/v2/conversations/${conversationId}/messages/`);
+	return clientifyFetch(`/v2/conversations/${conversationId}/messages/?fields=${MESSAGE_FIELDS}`);
 }
 
 export function sendConversationMessage(conversationId: number, message: string): Promise<unknown> {

@@ -15,12 +15,17 @@ export interface ClientifyDeal {
 export interface InboxMessage {
 	id: number;
 	text: string;
-	/** Sin enum documentado por Clientify: se infiere el tipo real descargando `media`. */
+	/**
+	 * Valores confirmados contra un canal real: "incoming" (mensaje del
+	 * cliente) y "owner" (alguien del equipo, o nosotros al responder).
+	 * Puede haber otros no vistos todavía (ej. mensajes de sistema).
+	 */
 	type: string;
 	media: string | null;
 	path: string;
 	created: string;
 	channel_id: number | null;
+	/** Fijo por conversación (el agente/usuario asignado) — no sirve para saber quién mandó ESTE mensaje, para eso usar `type`. */
 	owner_id: number | null;
 	conversation_id: number;
 	contact_id: string;

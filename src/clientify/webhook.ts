@@ -13,15 +13,18 @@ import type { InboxMessage } from "./types.js";
 export const clientifyWebhook = Router();
 
 /**
- * Clientify reenvía acá cada mensaje `incoming`/`outgoing` del canal
- * (ver PATCH /v2/channels/{id}/external-webhook/). No firma las
- * entregas (sin HMAC), así que la única protección es este secreto
- * compartido en la query string, configurado al setear la URL del
- * webhook en Clientify: .../webhook/clientify?secret=...
+ * Clientify reenvía acá cada mensaje del canal (ver PATCH
+ * /v2/channels/{id}/external-webhook/). No firma las entregas (sin
+ * HMAC), así que la única protección es este secreto compartido en la
+ * query string, configurado al setear la URL del webhook en Clientify:
+ * .../webhook/clientify?secret=...
  *
- * El payload exacto que manda Clientify no está 100% documentado — este
- * handler asume que es el objeto de mensaje (ver InboxMessage) y queda
- * logueado para poder ajustarlo apenas llegue el primer mensaje real.
+ * Payload confirmado el 2026-09-20 contra un canal real: es el objeto
+ * de mensaje (ver InboxMessage), y el campo que distingue quién lo
+ * mandó es `type` — NO `owner_id` (ese queda fijo, es el agente
+ * asignado a la conversación, igual en todos los mensajes). Valores de
+ * `type` vistos: "incoming" (el cliente) y "owner" (alguien del equipo,
+ * incluido este mismo agente al responder).
  */
 clientifyWebhook.post("/webhook/clientify", async (req, res) => {
 	if (req.query.secret !== env.CLIENTIFY_WEBHOOK_SECRET) {
@@ -38,9 +41,8 @@ clientifyWebhook.post("/webhook/clientify", async (req, res) => {
 
 		// Evita que el agente se responda a sí mismo: los mensajes que
 		// nosotros mandamos por sendConversationMessage también disparan
-		// este webhook como "outgoing". Ajustar esta condición apenas se
-		// confirme el campo real que distingue incoming/outgoing.
-		if (message.owner_id) return;
+		// este webhook, pero con type "owner".
+		if (message.type !== "incoming") return;
 
 		// La conversación del dueño es un canal aparte, para confirmar
 		// aprendizajes por sí/no — no pasa por el agente de cara al cliente.

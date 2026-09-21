@@ -87,16 +87,23 @@ para poder revisarlo después.
    npx tsx scripts/configure-webhook.ts https://tu-url-publica
    ```
 
+## Confirmado contra la cuenta real (2026-09-20)
+
+- El canal de WhatsApp existe (`type: "whatsapp"`) y el payload que
+  Clientify manda es efectivamente el objeto `InboxMessage`.
+- El campo que distingue quién mandó el mensaje es **`type`**
+  (`"incoming"` = cliente, `"owner"` = equipo/nosotros) — **no**
+  `owner_id`, que queda fijo por conversación. `src/clientify/webhook.ts`
+  ya filtra por `type`.
+- Los endpoints `/v2/channels/` y `/v2/conversations/` **exigen** un
+  parámetro `?fields=...` (no es opcional como sugiere la doc) —
+  `src/clientify/api.ts` ya lo manda en cada llamada.
+
 ## Pendiente de confirmar antes de producción
 
-- El **payload exacto** que Clientify manda al webhook no está 100%
-  documentado — `src/clientify/webhook.ts` asume que es el objeto de
-  mensaje (`InboxMessage`) y lo loguea completo; hay que mirar ese log
-  con el primer mensaje real y ajustar si hace falta.
-- Cómo distinguir un mensaje **entrante** de uno que **nosotros mismos
-  mandamos** (para no entrar en loop respondiéndose a sí mismo) — hoy se
-  asume que `owner_id` viene vacío en los entrantes; confirmar con un
-  mensaje real.
+- Todavía no vino ningún mensaje real con **audio o imagen** — el
+  formato del campo `media` en esos casos (URL completa vs. relativa,
+  si el content-type se puede inferir igual) está sin probar.
 - `crear_contacto` en `src/clientify/api.ts` existe pero no está
   conectada como tool del agente todavía: crear un contacto con teléfono
   requiere primero crear un recurso en `/v2/contact_phones/` y no está
